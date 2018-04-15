@@ -283,37 +283,36 @@ CAMLprim value caml_dht_nodes (value sdom)
 }
 
 /* Functions called by the DHT. */
+#include <sys/socket.h>
+int dht_sendto(int sockfd, const void *buf, int len, int flags,
+               const struct sockaddr *to, int tolen) {
+    sendto(sockfd, buf, len, flags, to, tolen);
+}
+
 int dht_blacklisted (const struct sockaddr *sa, int salen)
 {
   return 0;
 }
 
-void dht_hash(void *hash_return, int hash_size, const void *v1, int len1, const void *v2, int len2, const void *v3, int len3)
-{
-  CAMLparam0 ();
-  CAMLlocal2 (w, r);
-
-  w = caml_alloc_string (len1 + len2 + len3);
-
-  memcpy (String_val (w), v1, len1);
-  memcpy (String_val (w) + len1, v2, len2);
-  memcpy (String_val (w) + len1 + len2, v3, len3);
-
-  r = caml_callback (*caml_named_value ("dht_hash"), w);
-
-  if (hash_size > 16)
-    memset ((char *) hash_return + 16, 0, hash_size - 16);
-
-  memcpy (hash_return, String_val (r), hash_size > 16 ? 16 : hash_size);
-
-  CAMLreturn0;
+#include "monocypher.h"
+void dht_hash(void *hash_return, int hash_size,
+              const void *v1, int len1,
+              const void *v2, int len2,
+              const void *v3, int len3) {
+    crypto_blake2b_ctx ctx;
+    crypto_blake2b_general_init(&ctx, hash_size, NULL, 0);
+    crypto_blake2b_update(&ctx, v1, len1);
+    crypto_blake2b_update(&ctx, v2, len2);
+    crypto_blake2b_update(&ctx, v3, len3);
+    crypto_blake2b_final(&ctx, hash_return);
 }
 
-int dht_random_bytes (void *buf, size_t size)
-{
-  CAMLparam0 ();
-  CAMLlocal1 (ba);
-  ba = caml_ba_alloc_dims (CAML_BA_UINT8 | CAML_BA_C_LAYOUT, 1, buf, size);
-  caml_callback (*caml_named_value ("dht_random_bytes"), ba);
-  CAMLreturn (Val_int(size));
-}
+#if defined(__linux__)
+#include <sys/random.h>
+    int dht_random_bytes (void *buf, size_t size) { getrandom(buf, size, 0); return 0; }
+#elif (defined(__APPLE__) && defined(__MACH__)) || defined(__FreeBSD__)
+#include <stdlib.h>
+    int dht_random_bytes (void *buf, size_t size) { arc4random_buf(buf, size); return 0; }
+#else
+#error "System does not support random number generation."
+#endif
