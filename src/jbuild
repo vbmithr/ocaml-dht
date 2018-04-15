@@ -1,0 +1,14 @@
+(jbuild_version 1)
+
+(library
+ ((name        dht)
+  (public_name dht)
+  (synopsis "OCaml bindings for Juliusz Chroboczek's dht C library")
+  (libraries (bigarray))
+  ;; (c_flags (-Idht))
+  (c_names (dht_orig dht_stubs))))
+
+;; (executables
+;;  ((names        ())
+;;   (public_names ())
+;;   (libraries ())))

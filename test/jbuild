@@ -1,0 +1,6 @@
+(jbuild_version 1)
+
+(executables
+ ((names        (find_ih))
+  (public_names (dht-find-ih))
+  (libraries (unix dht))))
